@@ -1,0 +1,73 @@
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(shiny)
+```
+
+```{r}
+df <- read.csv("/Users/nithilsuresh/ds-2003-midterm/ds-2003-final/all_euro_data.csv")
+```
+
+```{r}
+df_2019 <- subset(df, seq(nrow(df)) >= 197413)
+```
+
+```{r}
+df_2019_cleaned <- df_2019[-(seq(1, 4726, by = 2)), ]
+```
+
+```{r}
+filtered_df <- subset(df_2019_cleaned, select = c("Div", "HomeTeam", "AwayTeam", "HF", "AF"))
+```
+
+```{r}
+filtered_df$NetFouls = filtered_df$AF - filtered_df$HF
+```
+
+```{r}
+average_net_fouls_df <- filtered_df %>%
+  unnest(cols = HomeTeam) %>%
+  group_by(Div, HomeTeam) %>%
+  summarize(AvgFouls = sum(NetFouls) / n())
+average_net_fouls_df
+```
+```{r}
+average_net_fouls_cleaned_df <- subset(average_net_fouls_df, seq(nrow(average_net_fouls_df)) > 48)
+```
+
+```{r}
+ui <- fluidPage(
+  titlePanel("Fouls by Team and Division"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("divisionInput", "Select Division", choices = unique(average_net_fouls_cleaned_df$Div))
+    ),
+    mainPanel(
+      plotOutput("foulsPlot")
+    )
+  )
+)
+
+# Define the server logic
+server <- function(input, output) {
+  filtered_data <- reactive({
+    average_net_fouls_cleaned_df %>%
+      filter(Div == input$divisionInput)
+  })
+
+  output$foulsPlot <- renderPlot({
+    ggplot(filtered_data(), aes(x = HomeTeam, y = AvgFouls, fill = HomeTeam)) +
+      geom_bar(stat = "identity") +
+      labs(title = paste("Fouls by Team in Division", input$divisionInput),
+           x = "Team",
+           y = "Number of Fouls") +
+      theme_minimal()
+  })
+}
+
+# Run the Shiny app
+shinyApp(ui, server)
+```
+
