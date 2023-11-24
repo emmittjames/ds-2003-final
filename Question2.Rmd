@@ -4,22 +4,21 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(shiny)
-```
 
-```{r}
-df <- read.csv("/Users/nithilsuresh/ds-2003-midterm/ds-2003-final/all_euro_data.csv")
-```
 
-```{r}
+df <- read.csv("all_euro_data.csv")
+
 df_2019 <- subset(df, seq(nrow(df)) >= 197413)
-```
 
-```{r}
 df_2019_cleaned <- df_2019[-(seq(1, 4726, by = 2)), ]
-```
 
-```{r}
-filtered_df <- subset(df_2019_cleaned, select = c("Div", "HomeTeam", "AwayTeam", "HF", "AF"))
+filtered_df <- subset(df_2019_cleaned, select = c("Div", "Date", "Time", "HomeTeam", "AwayTeam", "FTHG", "FTAG", "FTR", "HS", "AS", "HF", "AF"))
+
+top_5_leagues = c("E0", "D1", "SP1", "I1", "F1")
+
+filtered_df <- filtered_df[filtered_df$Div %in% top_5_leagues, ]
+
+filtered_df <- mutate(filtered_df, Div = recode(Div, "E0" = "Premier League", "D1" = "Bundesliga", "SP1" = "La Liga", "I1" = "Serie A", "F1" = "Ligue 1"))
 ```
 
 ```{r}
@@ -33,16 +32,13 @@ average_net_fouls_df <- filtered_df %>%
   summarize(AvgFouls = sum(NetFouls) / n())
 average_net_fouls_df
 ```
-```{r}
-average_net_fouls_cleaned_df <- subset(average_net_fouls_df, seq(nrow(average_net_fouls_df)) > 48)
-```
 
 ```{r}
 ui <- fluidPage(
   titlePanel("Fouls by Team and Division"),
   sidebarLayout(
     sidebarPanel(
-      selectInput("divisionInput", "Select Division", choices = unique(average_net_fouls_cleaned_df$Div))
+      selectInput("divisionInput", "Select Division", choices = unique(average_net_fouls_df$Div))
     ),
     mainPanel(
       plotOutput("foulsPlot")
@@ -53,17 +49,19 @@ ui <- fluidPage(
 # Define the server logic
 server <- function(input, output) {
   filtered_data <- reactive({
-    average_net_fouls_cleaned_df %>%
+    average_net_fouls_df %>%
       filter(Div == input$divisionInput)
   })
 
   output$foulsPlot <- renderPlot({
     ggplot(filtered_data(), aes(x = HomeTeam, y = AvgFouls, fill = HomeTeam)) +
       geom_bar(stat = "identity") +
-      labs(title = paste("Fouls by Team in Division", input$divisionInput),
+      labs(title = paste("Net fouls by team at home -", input$divisionInput),
            x = "Team",
            y = "Number of Fouls") +
-      theme_minimal()
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+      guides(fill = FALSE)
   })
 }
 
