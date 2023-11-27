@@ -27,9 +27,7 @@ top_5_leagues = c("E0", "D1", "SP1", "I1", "F1")
 filtered_df <- filtered_df[filtered_df$Div %in% top_5_leagues, ]
 
 filtered_df <- mutate(filtered_df, Div = recode(Div, "E0" = "Premier League", "D1" = "Bundesliga", "SP1" = "La Liga", "I1" = "Serie A", "F1" = "Ligue 1"))
-```
 
-```{r}
 
 home_games <- filtered_df %>%
   count(Div, HomeTeam) %>%
@@ -51,7 +49,6 @@ home_wins <- total_games %>%
   mutate(Wins = ifelse(is.na(Wins), 0, Wins))%>%
   rename(HomeWins = Wins)
 
-
 away_wins <- filtered_df %>%
   filter(FTR == "A") %>%
   count(Div,AwayTeam) %>%
@@ -61,15 +58,9 @@ away_wins <- total_games %>%
   left_join(away_wins, by = c("Div", "Team")) %>%
   mutate(Wins = ifelse(is.na(Wins), 0, Wins))%>%
   rename(AwayWins = Wins)
-```
-
-```{r}
 
 win_rates <- full_join(home_wins, away_wins, by = c("Team", "Div", "HomeGames", "AwayGames"))%>%
   mutate(HomeWinPct = (HomeWins / HomeGames) * 100, AwayWinPct = (AwayWins / AwayGames) * 100)
-```
-
-```{r}
 
 combined_data <- rbind(
   select(win_rates, Div, Team, WinPct = HomeWinPct)%>%
@@ -78,9 +69,7 @@ combined_data <- rbind(
     mutate(Type = "Away"))
 
 combined_data$Type <- factor(combined_data$Type, levels = c("Home", "Away"))
-```
 
-```{r}
 filtered_df$FTHG <- as.numeric(as.character(filtered_df$FTHG))
 filtered_df$FTAG <- as.numeric(as.character(filtered_df$FTAG))
 
@@ -97,9 +86,7 @@ away_goal_diff <- filtered_df %>%
   group_by(Div,AwayTeam) %>%
   summarise(AwayGoalDiff = mean(GoalDiffAway))%>%
   rename(Team = AwayTeam)
-```
 
-```{r}
 combined_gd <- full_join(home_goal_diff, away_goal_diff, by = c("Team", "Div"))
 goal_diff <- rbind(
   select(combined_gd, Div, Team, GD = HomeGoalDiff)%>%
@@ -144,7 +131,7 @@ shinyApp(ui, server)
 
 ```{r}
 ui <- fluidPage(
-  titlePanel("Home & Away Win Goal Differential for Teams by Division"),
+  titlePanel("Average Home & Away Goal Differential for Teams by Division"),
   sidebarLayout(
     sidebarPanel(
       selectInput("divisionInput", "Select Division", choices = unique(goal_diff$Div))
@@ -172,20 +159,14 @@ server <- function(input, output) {
 shinyApp(ui, server)
 ```
 
-
 ```{r}
 filtered_df$NetFouls = filtered_df$AF - filtered_df$HF
-```
-
-```{r}
 average_net_fouls_df <- filtered_df %>%
   unnest(cols = HomeTeam) %>%
   group_by(Div, HomeTeam) %>%
   summarize(AvgFouls = sum(NetFouls) / n())
 average_net_fouls_df
-```
 
-```{r}
 ui <- fluidPage(
   titlePanel("Fouls by Team and Division"),
   sidebarLayout(
