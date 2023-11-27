@@ -9,7 +9,7 @@ library(tidyr)
 library(shiny)
 
 
-df <- read.csv("/Users/nathancluu/rDataScience/ds-2003-final/all_euro_data.csv")
+df <- read.csv("all_euro_data.csv")
 
 df_2019 <- subset(df, seq(nrow(df)) >= 197413)
 
