@@ -99,6 +99,7 @@ goal_diff$Type <- factor(goal_diff$Type, levels = c("Home", "Away"))
 
 
 ```{r}
+#Question 1
 ui <- fluidPage(
   titlePanel("Home & Away Win Percentage for Teams by Division"),
   sidebarLayout(
@@ -130,6 +131,7 @@ shinyApp(ui, server)
 ```
 
 ```{r}
+#Question 1 graph
 ui <- fluidPage(
   titlePanel("Average Home & Away Goal Differential for Teams by Division"),
   sidebarLayout(
@@ -160,6 +162,7 @@ shinyApp(ui, server)
 ```
 
 ```{r}
+#Question 2 graph
 filtered_df$NetFouls = filtered_df$AF - filtered_df$HF
 average_net_fouls_df <- filtered_df %>%
   unnest(cols = HomeTeam) %>%
@@ -189,7 +192,7 @@ server <- function(input, output) {
   output$foulsPlot <- renderPlot({
     ggplot(filtered_data(), aes(x = HomeTeam, y = AvgFouls, fill = HomeTeam)) +
       geom_bar(stat = "identity") +
-      labs(title = paste("Net fouls by team at home -", input$divisionInput),
+      labs(title = paste("Net fouls against the team at home -", input$divisionInput),
            x = "Team",
            y = "Number of Fouls") +
       theme_minimal() +
@@ -204,6 +207,7 @@ shinyApp(ui, server)
 
 
 ```{r}
+#Question 3 graph
 ui <- fluidPage(
   titlePanel("Home Team Win Rate by Time"),
   sidebarLayout(
@@ -246,6 +250,7 @@ shinyApp(ui = ui, server = server)
 ```
 
 ```{r}
+#Question 3 graph
 ui <- fluidPage(
   titlePanel("Games per time slot"),
   sidebarLayout(
