@@ -100,17 +100,22 @@ goal_diff$Type <- factor(goal_diff$Type, levels = c("Home", "Away"))
 
 ```{r}
 #Question 1
+data <- data.frame(
+  Choice = c("Wins", "Goal Differential"))
 ui <- fluidPage(
-  titlePanel("Home & Away Win Percentage for Teams by Division"),
+  titlePanel("Home & Away Win Percentage/GD for Teams by Division"),
   sidebarLayout(
     sidebarPanel(
-      selectInput("divisionInput", "Select Division", choices = unique(combined_data$Div))
+      selectInput("divisionInput", "Select Division", choices = unique(combined_data$Div)),
+      selectInput("graphInput", "Select Statistic", choices = unique(data$Choice))
     ),
     mainPanel(
-      plotOutput("winsPlot")
+      plotOutput("q1Plot")
     )
   )
 )
+combined_data <- full_join(combined_data, goal_diff, by = c("Team", "Div", "Type"))
+combined_data$Type <- factor(combined_data$Type, levels = c("Home", "Away"))
 
 server <- function(input, output) {
   filtered_data <- reactive({
@@ -118,44 +123,25 @@ server <- function(input, output) {
       filter(Div == input$divisionInput)
   })
 
-  output$winsPlot <- renderPlot({
-    ggplot(filtered_data(), aes(x = Team, y = WinPct, fill = Type)) +
+  output$q1Plot <- renderPlot({
+    if (input$graphInput == "Wins") {
+      ggplot(filtered_data(), aes(x = Team, y = WinPct, fill = Type)) +
       geom_bar(stat = "identity", position = "dodge", width = 0.7) +
-      labs(title = paste("Home and Away Win Rates for Each Team -", input$divisionInput),x = "Team", y = "Win Rate") +
+      labs(title = paste("Home and Away Win Rates for Each Team -", input$divisionInput),x = "Team",
+           y = "Win Rate") +
       scale_fill_manual(values = c("blue", "red"), labels = c("Home Win Rate", "Away Win Rate")) +
       theme_minimal() +
       theme(axis.text.x = element_text(angle = 45, hjust = 1))+ coord_flip()
-  })
-}
-shinyApp(ui, server)
-```
-
-```{r}
-#Question 1 graph
-ui <- fluidPage(
-  titlePanel("Average Home & Away Goal Differential for Teams by Division"),
-  sidebarLayout(
-    sidebarPanel(
-      selectInput("divisionInput", "Select Division", choices = unique(goal_diff$Div))
-    ),
-    mainPanel(
-      plotOutput("goalsPlot")
-    )
-  )
-)
-
-server <- function(input, output) {
-  filtered_data <- reactive({
-    goal_diff %>%
-      filter(Div == input$divisionInput)
-  })
-  output$goalsPlot <- renderPlot({
-    ggplot(filtered_data(), aes(x = Team, y = GD, fill = Type)) +
-    geom_bar(stat = "identity", position = "dodge", alpha = 0.7) +
-    labs(x = "Team", y = "Goal Differential", title = paste("Average Home & Away Goal Differentials for Each Team -",input$divisionInput)) +
-    scale_fill_manual(values = c("blue", "red"), labels = c("Home Goal Differential", "Away Goal Differential")) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    } 
+    else {
+      ggplot(filtered_data(), aes(x = Team, y = GD, fill = Type)) +
+      geom_bar(stat = "identity", position = "dodge", alpha = 0.7) +
+      labs(x = "Team", y = "Goal Differential", title = paste("Average Home & Away Goal
+        Differentials for Each Team-",input$divisionInput)) +
+      scale_fill_manual(values = c("blue", "red"), labels = c("Home Goal Differential", "Away Goal Differential")) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+      }
   })
 }
 shinyApp(ui, server)
