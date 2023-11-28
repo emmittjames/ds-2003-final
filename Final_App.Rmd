@@ -154,6 +154,7 @@ DataBefore = "We used a Kaggle dataset containing over 217,000 observations from
 DataAfter = "We filtered our dataset down to 13 variables and ~3800 observations to only analyze games since 2019 and only look at variables relevant to our analysis."
 WinsText = "When looking at the home and away win rates for European Soccer clubs, it becomes apparent that most teams tend to win more games at home than when they are the visiting away team. Throughout the five divisions; however, there are a handful of outliers including clubs such as Stuttgart in the Bundesliga, Cadiz in La Liga, Lens in Ligue 1, Fulham in the Premier League, and AC Milan in the Serie A. One conclusion that can be drawn is that these few teams feed off the pressure of the opposing teams’ fans, while most other teams perform better at their home stadium with their fanbase present."
 GoalDifferentialText ="When observing the home and away average goal differentials for European Soccer Clubs, the majority of teams have a better average goal differential at home than when they are away. However, similarly to the difference in home and away win rate, there are some outliers such as Wolfsburg in the Bundesliga, Cadiz in La Liga, Fulham in the Premier League, and AC Milan in the Serie A, all of which also had relatively better away win rates. Here is greater evidence that these clubs tend to perform better when they are on the road. Further investigation into factors such as stadium conditions could explain why these teams seemingly perform better on the road than at home."
+q3Text = "When looking at the win rate of the home team for most time slots in all 5 leagues, they seem pretty normal with the home team having a slight edge over the winning team. However, some of the time slots are skewed a decent amount in favor of one side which is not really due to the time slot itself but rather a lack of sample size for that time slot. For example, when the threshold is set to 20, 16:00:00 seems very skewed in favor of the home team in the Premier League. However, when looking at the number of games in the time slot it is shown that this time slot has the least amount of games played. Overall, the start time of a game does not seem to have much of an effect on the outcome of a game, most likely due to the fact that most teams in the top 5 European leagues are able to pack their stadium no matter what time the game starts at."
 ```
 
 UI 
@@ -243,7 +244,9 @@ ui <- navbarPage(
         sliderInput("thresholdInput", "Select a threshold of games:", min = 1, max = 80, value = 20)
       ),
       mainPanel(
-        plotOutput("q3Plot")
+        plotOutput("q3Plot"),
+        h2("Conclusion"),
+        p(q3Text),
       )
     )
   )
