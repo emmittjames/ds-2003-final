@@ -1,0 +1,335 @@
+---
+title: "Final - App"
+output:
+  html_document:
+    number_sections: no
+    toc: yes
+    toc_float: yes
+    code_folding: show
+#runtime: shiny    
+---
+
+Imports
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+library(knitr)
+library(tidyverse)
+library(plotly)
+library(foreign)
+library(ggplot2)
+library(RColorBrewer)
+library(shiny)
+library(rsconnect)
+library(dplyr)
+library(tidyr)
+library(shinythemes)
+
+```
+
+Data Maninpulation
+```{r}
+
+# Load the data
+df <- read.csv("all_euro_data.csv")
+
+# Subset the data for the year 2019
+df_2019 <- subset(df, seq(nrow(df)) >= 197413)
+
+# Clean the data by removing every other row
+df_2019_cleaned <- df_2019[-(seq(1, 4726, by = 2)), ]
+
+# Select relevant columns
+filtered_df <- subset(df_2019_cleaned, select = c("Div", "Date", "Time", "HomeTeam", "AwayTeam", "FTHG", "FTAG", "FTR", "HS", "AS", "HF", "AF"))
+
+# Filter for the top 5 leagues
+top_5_leagues <- c("E0", "D1", "SP1", "I1", "F1")
+filtered_df <- filtered_df[filtered_df$Div %in% top_5_leagues, ]
+
+# Recode the league codes to league names
+filtered_df <- mutate(filtered_df, Div = recode(Div, "E0" = "Premier League", "D1" = "Bundesliga", "SP1" = "La Liga", "I1" = "Serie A", "F1" = "Ligue 1"))
+
+# Count home and away games
+home_games <- filtered_df %>%
+  count(Div, HomeTeam) %>%
+  rename(Team = HomeTeam, HomeGames = n)
+
+away_games <- filtered_df %>%
+  count(Div, AwayTeam) %>%
+  rename(Team = AwayTeam, AwayGames = n)
+
+total_games <- full_join(home_games, away_games, by = c("Team", "Div"))
+
+# Count home wins
+home_wins <- filtered_df %>%
+  filter(FTR == "H") %>%
+  count(Div, HomeTeam) %>%
+  rename(Wins = n, Team = HomeTeam)
+
+home_wins <- total_games %>%
+  left_join(home_wins, by = c("Div", "Team")) %>%
+  mutate(Wins = ifelse(is.na(Wins), 0, Wins)) %>%
+  rename(HomeWins = Wins)
+
+# Count away wins
+away_wins <- filtered_df %>%
+  filter(FTR == "A") %>%
+  count(Div, AwayTeam) %>%
+  rename(Wins = n, Team = AwayTeam)
+
+away_wins <- total_games %>%
+  left_join(away_wins, by = c("Div", "Team")) %>%
+  mutate(Wins = ifelse(is.na(Wins), 0, Wins)) %>%
+  rename(AwayWins = Wins)
+
+# Combine home and away win counts
+win_rates <- full_join(home_wins, away_wins, by = c("Team", "Div", "HomeGames", "AwayGames")) %>%
+  mutate(HomeWinPct = (HomeWins / HomeGames) * 100, AwayWinPct = (AwayWins / AwayGames) * 100)
+
+combined_data <- rbind(
+  select(win_rates, Div, Team, WinPct = HomeWinPct) %>%
+    mutate(Type = "Home"),
+  select(win_rates, Div, Team, WinPct = AwayWinPct) %>%
+    mutate(Type = "Away")
+)
+
+combined_data$Type <- factor(combined_data$Type, levels = c("Home", "Away"))
+
+# Extract goal differences
+filtered_df$FTHG <- as.numeric(as.character(filtered_df$FTHG))
+filtered_df$FTAG <- as.numeric(as.character(filtered_df$FTAG))
+
+# Calculate home goal differences
+home_goal_diff <- filtered_df %>%
+  mutate(GoalDiffHome = FTHG - FTAG) %>%
+  group_by(Div, HomeTeam) %>%
+  summarise(HomeGoalDiff = mean(GoalDiffHome)) %>%
+  rename(Team = HomeTeam)
+
+# Calculate away goal differences
+away_goal_diff <- filtered_df %>%
+  mutate(GoalDiffAway = FTAG - FTHG) %>%
+  group_by(Div, AwayTeam) %>%
+  summarise(AwayGoalDiff = mean(GoalDiffAway)) %>%
+  rename(Team = AwayTeam)
+
+# Combine home and away goal differences
+combined_gd <- full_join(home_goal_diff, away_goal_diff, by = c("Team", "Div"))
+goal_diff <- rbind(
+  select(combined_gd, Div, Team, GD = HomeGoalDiff) %>%
+    mutate(Type = "Home"),
+  select(combined_gd, Div, Team, GD = AwayGoalDiff) %>%
+    mutate(Type = "Away")
+)
+
+goal_diff$Type <- factor(goal_diff$Type, levels = c("Home", "Away"))
+
+# Calculate games_count for question 3
+games_count_question3 <- table(filtered_df$Time)
+
+# Calculate games_count for question 4
+games_count_question4 <- table(filtered_df$Time)
+
+#For Question 1
+data <- data.frame(
+  Choice = c("Wins", "Goal Differential"))
+combined_data <- full_join(combined_data, goal_diff, by = c("Team", "Div", "Type"))
+combined_data$Type <- factor(combined_data$Type, levels = c("Home", "Away"))
+
+#For Question 2
+filtered_df$NetFouls = filtered_df$AF - filtered_df$HF
+average_net_fouls_df <- filtered_df %>%
+  unnest(cols = HomeTeam) %>%
+  group_by(Div, HomeTeam) %>%
+  summarize(AvgFouls = sum(NetFouls) / n())
+
+#For Question 3
+q3data <- data.frame(
+  q3Choice = c("Game Results", "Games Played"))
+```
+Text
+```{r}
+OurQuestionText ="We decided to break down our questions into three sub-questions to allow us to analyze the impact of home field advantage in European Soccer. 1) Are there any teams that play better away from home? 2) How is officiating affected by playing at home? 3) Does time of day affect home field advantage? You can explore the tabs above to see how we used graphs to break down each of these questions."
+ResultsText =""
+DataBefore = "We used a Kaggle dataset containing over 217,000 observations from soccer games 1993 to 2021. The dataset with over 100 variables from division, home/away team, penalties, goals, etc."
+DataAfter = "We filtered our dataset down to 13 variables and ~3800 observations to only analyze games since 2019 and only look at variables relevant to our analysis."
+WinsText = "When looking at the home and away win rates for European Soccer clubs, it becomes apparent that most teams tend to win more games at home than when they are the visiting away team. Throughout the five divisions; however, there are a handful of outliers including clubs such as Stuttgart in the Bundesliga, Cadiz in La Liga, Lens in Ligue 1, Fulham in the Premier League, and AC Milan in the Serie A. One conclusion that can be drawn is that these few teams feed off the pressure of the opposing teams’ fans, while most other teams perform better at their home stadium with their fanbase present."
+GoalDifferentialText ="When observing the home and away average goal differentials for European Soccer Clubs, the majority of teams have a better average goal differential at home than when they are away. However, similarly to the difference in home and away win rate, there are some outliers such as Wolfsburg in the Bundesliga, Cadiz in La Liga, Fulham in the Premier League, and AC Milan in the Serie A, all of which also had relatively better away win rates. Here is greater evidence that these clubs tend to perform better when they are on the road. Further investigation into factors such as stadium conditions could explain why these teams seemingly perform better on the road than at home."
+```
+
+UI 
+```{r}
+ui <- navbarPage(
+  theme = shinytheme("united"),
+  title = "European Soccer",
+  #Page 1
+  tabPanel("About our Project", 
+           sidebarLayout(
+             sidebarPanel(
+               div(class = "sticky",
+                   h3("Navigation"),
+                   h4("Our Question"),
+                   h4("Our Data Before Cleaning"),
+                   h4("Our Data After Cleaning"),
+                   h4("Results")
+               )
+             ),
+             mainPanel(
+               h1(style = "text-align: center;", "Introducing our project: Homefield Advantage in European Soccer \n\n"),
+               tags$hr(style = "border-top: 2px solid black;"),
+               br(),
+               h2("Our Question: "),
+               h3("How does home field advantage affect European Soccer and which factors of the game are most influenced?"),
+               p(OurQuestionText),
+               tags$hr(style = "border-top: 2px solid black;"),
+               h2("Our Data Before Cleaning:"),
+               p(DataBefore),
+               tags$hr(style = "border-top: 2px solid black;"),     
+               h2("Our Data After Cleaning:"),
+               p(DataAfter),
+               tags$hr(style = "border-top: 2px solid black;"),
+               h2("Results:"),
+               p(ResultsText)
+             )
+           )
+  ),
+  #Random work for Page 2
+
+  #Page 2
+  tabPanel("Question 1: ",
+           titlePanel("Home & Away Win Percentage for Teams by League"),
+           
+    sidebarLayout(
+    sidebarPanel(
+      selectInput("divisionInput", "Select League", choices = unique(combined_data$Div)),
+      radioButtons("graphInput", "Select Statistic", choices = unique(data$Choice), selected = NULL)
+    ),
+    mainPanel(
+      plotOutput("q1Plot"),
+      h2("Conclusion for Wins Percentage"),
+      p(WinsText),
+      tags$hr(style = "border-top: 2px solid black;"),     
+      h2("Conclusion for Goal
+         Differential"),
+      p(GoalDifferentialText),
+      
+      
+    )
+  )
+  ),
+
+
+
+  #Page 3
+  tabPanel("Question 2: ",
+           titlePanel("Fouls by Team and League"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("divisionInput2", "Select League", choices = unique(average_net_fouls_df$Div))
+    ),
+    mainPanel(
+      plotOutput("foulsPlot")
+    )
+  )
+),
+
+
+  #Page 4
+  tabPanel("Question 3: ",
+    titlePanel("Home Team Results by Kickoff Time"),
+    sidebarLayout(
+      sidebarPanel(
+        selectInput("divisionInput3", "Select League:", choices = unique(filtered_df$Div)),
+        radioButtons("graphInput", "Select Statistic", choices = unique(data$q3Choice), selected = NULL),
+      ),
+      mainPanel(
+        plotOutput("q3Plot")
+      )
+    )
+  )
+)
+```
+
+Server
+```{r}
+server <- function(input, output) {
+  #Page 1
+  filtered_data <- reactive({
+    combined_data %>%
+      filter(Div == input$divisionInput)
+  })
+  output$q1Plot <- renderPlot({
+    if (input$graphInput == "Wins") {
+      ggplot(filtered_data(), aes(x = Team, y = WinPct, fill = Type)) +
+      geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+      labs(title = paste("Home and Away Win Rates for Each Team -", input$divisionInput),x = "Team",
+           y = "Win Rate") +
+      scale_fill_manual(values = c("blue", "red"), labels = c("Home Win Rate", "Away Win Rate")) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))+ coord_flip()
+    }
+    else {
+      ggplot(filtered_data(), aes(x = Team, y = GD, fill = Type)) +
+      geom_bar(stat = "identity", position = "dodge", alpha = 0.7) +
+      labs(x = "Team", y = "Goal Differential", title = paste("Average Home & Away Goal
+        Differentials for Each Team-",input$divisionInput)) +
+      scale_fill_manual(values = c("blue", "red"), labels = c("Home Goal Differential", "Away Goal Differential")) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+      }
+  })
+  filtered_data2 <- reactive({
+    average_net_fouls_df %>%
+      filter(Div == input$divisionInput2)
+  })
+
+  output$foulsPlot <- renderPlot({
+    ggplot(filtered_data2(), aes(x = HomeTeam, y = AvgFouls, fill = HomeTeam)) +
+      geom_bar(stat = "identity") +
+      labs(title = paste("Average fouls called against oponent when at home -", input$divisionInput2),
+           x = "Team",
+           y = "Number of Fouls") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+      guides(fill = FALSE)
+  })
+  
+
+  
+  output$q3Plot <- renderPlot({
+    if (input$graphInput == "Win percentage") {
+      filtered_df <- filtered_df %>%
+      rename(Result = FTR)
+      filtered_df <- subset(filtered_df, Div == input$divisionInput3)
+      games_count <- table(filtered_df$Time)
+      popular_time_slots <- names(games_count[games_count >= 20])
+      filtered_df <- subset(filtered_df, Time %in% popular_time_slots)
+      ggplot(filtered_df, aes(x = Time, fill = Result)) +
+        geom_bar(position = "fill") +
+        labs(title = paste("Home team win rate for every time slot with over 20 games -", input$league),
+             x = "Time",
+             y = "Win Rate") +
+        scale_fill_manual(values = c("H" = "darkgreen", "A" = "red", "D" = "gray")) +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    }
+    else {
+      filtered_df <- subset(filtered_df, Div == input$divisionInput3)
+      games_count <- table(filtered_df$Time)
+      popular_time_slots <- names(games_count[games_count >= 20])
+      filtered_df <- subset(filtered_df, Time %in% popular_time_slots)
+      ggplot(filtered_df, aes(x = Time)) +
+        geom_bar() +
+        labs(title = paste("Number of Games Played in Each Time Slot -", input$league),
+             x = "Time",
+             y = "Number of Games") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+    }
+  })
+}
+
+
+shinyApp(ui=ui, server=server)
+
+```
+
