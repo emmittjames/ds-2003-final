@@ -143,8 +143,8 @@ average_net_fouls_df <- filtered_df %>%
   summarize(AvgFouls = sum(NetFouls) / n())
 
 #For Question 3
-q3data <- data.frame(
-  q3Choice = c("Game Results", "Games Played"))
+q3choices <- data.frame(
+  q3choice = c("Game Results", "Games Played"))
 ```
 Text
 ```{r}
@@ -239,7 +239,8 @@ ui <- navbarPage(
     sidebarLayout(
       sidebarPanel(
         selectInput("divisionInput3", "Select League:", choices = unique(filtered_df$Div)),
-        radioButtons("graphInput", "Select Statistic", choices = unique(data$q3Choice), selected = NULL),
+        radioButtons("graphInputq3", "Select Statistic", choices = unique(q3choices$q3choice), selected = "Game Results"),
+        sliderInput("thresholdInput", "Select a threshold of games:", min = 1, max = 80, value = 20)
       ),
       mainPanel(
         plotOutput("q3Plot")
@@ -296,16 +297,16 @@ server <- function(input, output) {
 
   
   output$q3Plot <- renderPlot({
-    if (input$graphInput == "Win percentage") {
+    if (input$graphInputq3 == "Game Results") {
       filtered_df <- filtered_df %>%
       rename(Result = FTR)
       filtered_df <- subset(filtered_df, Div == input$divisionInput3)
       games_count <- table(filtered_df$Time)
-      popular_time_slots <- names(games_count[games_count >= 20])
+      popular_time_slots <- names(games_count[games_count >= input$thresholdInput])
       filtered_df <- subset(filtered_df, Time %in% popular_time_slots)
       ggplot(filtered_df, aes(x = Time, fill = Result)) +
         geom_bar(position = "fill") +
-        labs(title = paste("Home team win rate for every time slot with over 20 games -", input$league),
+        labs(title = paste("Home team win rate for every time slot with over", input$thresholdInput, "games -", input$divisionInput3),
              x = "Time",
              y = "Win Rate") +
         scale_fill_manual(values = c("H" = "darkgreen", "A" = "red", "D" = "gray")) +
@@ -315,11 +316,11 @@ server <- function(input, output) {
     else {
       filtered_df <- subset(filtered_df, Div == input$divisionInput3)
       games_count <- table(filtered_df$Time)
-      popular_time_slots <- names(games_count[games_count >= 20])
+      popular_time_slots <- names(games_count[games_count >= input$thresholdInput])
       filtered_df <- subset(filtered_df, Time %in% popular_time_slots)
       ggplot(filtered_df, aes(x = Time)) +
         geom_bar() +
-        labs(title = paste("Number of Games Played in Each Time Slot -", input$league),
+        labs(title = paste("Number of Games Played in Each Time Slot -", input$divisionInput3),
              x = "Time",
              y = "Number of Games") +
         theme_minimal() +
